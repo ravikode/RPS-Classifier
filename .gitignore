@@ -1,0 +1,25 @@
+# Python virtual environment
+venv/
+
+# Python cache
+__pycache__/
+*.pyc
+
+# Mac system files
+.DS_Store
+
+# Generated data
+# We are telling Git to IGNORE these folders.
+dataset/
+RPS_Output/
+
+# Generated models & labels
+*.tflite
+*.txt
+
+# Android Studio local files
+.gradle/
+build/
+*.apk
+*.aab
+local.properties
