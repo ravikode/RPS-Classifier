@@ -1,10 +1,6 @@
-# Import the 'os' module for basic operating system interactions.
 import os
-# Import 'shutil' for high-level file operations (copy, remove).
 import shutil
-# Import 'random' to shuffle the list of images for an unbiased split.
 import random
-# Import 'Path' from 'pathlib' for a modern, easy way to handle file paths.
 from pathlib import Path
 
 # --- Configuration ---

@@ -11,27 +11,33 @@ import tensorflow as tf
 import numpy as np
 # Import 'Image' from 'PIL' (Pillow) to open and process the uploaded image
 from PIL import Image
+# Import 'os' and 'glob' to find the model file automatically
+import os
+import glob
 
 # --- Configuration ---
-# !!! IMPORTANT !!!
-# You must MANUALLY update this path to match the versioned model
-# you downloaded from GCS.
-MODEL_PATH = "RPS_Output/RPS_int8_2025.11.12_1.tflite" # <-- CHANGE THIS
+OUTPUT_DIR = "RPS_Output"
+LABEL_PATH = f"{OUTPUT_DIR}/labels.txt"
+MODEL_INPUT_SIZE = (224, 224)
 # ---------------------
 
-# Define the path to the labels file
-LABEL_PATH = "RPS_Output/labels.txt"
-# Define the target size for the model's input
-MODEL_INPUT_SIZE = (224, 224)
-
+# Function to find the latest TFLite model automatically
+def find_latest_model():
+    # Look for all .tflite files in the output directory
+    files = glob.glob(f"{OUTPUT_DIR}/*.tflite")
+    if not files:
+        return None
+    # Sort files by modification time (newest first)
+    latest_file = max(files, key=os.path.getctime)
+    return latest_file
 
 # Function to load the model (cached so it only loads once)
 @st.cache_resource
-def load_model():
+def load_model(model_path):
     # Use a try...except block to catch errors
     try:
         # Load the TFLite model and allocate memory for it
-        interpreter = tf.lite.Interpreter(model_path=MODEL_PATH)
+        interpreter = tf.lite.Interpreter(model_path=model_path)
         interpreter.allocate_tensors()
         
         # Open the labels file and read all lines into a list
@@ -44,19 +50,24 @@ def load_model():
     except Exception as e:
         # ...show an error message on the web page
         st.error(f"Error loading model: {e}")
-        st.error(f"Make sure the file exists at: {MODEL_PATH}")
-        # Return nothing
         return None, None
 
-# Call the load_model function to get the interpreter and labels
-interpreter, labels = load_model()
-
 # --- Web Page UI ---
-# Set the page layout to "wide"
 st.set_page_config(layout="wide")
-# Set the title of the web page (as requested)
 st.title("Ravikiran's Game Page")
-# Write a short description
+
+# --- Auto-Detect Model ---
+model_path = find_latest_model()
+
+if model_path:
+    st.success(f"Loaded model: **{os.path.basename(model_path)}**")
+    # Call the load_model function
+    interpreter, labels = load_model(model_path)
+else:
+    st.error(f"No .tflite model found in {OUTPUT_DIR}. Please download it from GCS.")
+    interpreter = None
+    labels = None
+
 st.write("Using the trained model, create a web application with the following specifications:")
 st.markdown("""
 - A single-page interface containing an **"Image Upload"** button.
@@ -76,7 +87,6 @@ if uploaded_file is not None and interpreter is not None:
     
     # Display the uploaded image on the web page
     st.image(image, caption='Uploaded Image', use_column_width=True)
-    # Write a status message
     st.write("Classifying...")
     
     # Resize the image to the 224x224 size the model expects
