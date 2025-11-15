@@ -8,37 +8,38 @@ from pathlib import Path
 import shutil
 
 # --- Configuration ---
-# Point this to your GCS BUCKET path
 GCS_DATA_DIR = "gs://ravikode-rps-project-data/Rock-Paper-Scissors"
-# Define a NEW local directory to store the data
 LOCAL_DATA_DIR = "./local_dataset" 
-
-# Define a local output directory
 OUTPUT_DIR = "./RPS_Output"
-# Create the full path for saving the trained model directory
 MODEL_SAVE_DIR = os.path.join(OUTPUT_DIR, "RPS_model")
-# Set the directory for saving the labels.txt file
 LABEL_SAVE_DIR = OUTPUT_DIR
-
-# Model parameters
 IMG_SIZE = (224, 224); BATCH_SIZE = 32; EPOCHS = 50; LEARNING_RATE = 0.0001
 # ---------------------
 
-# --- NEW FUNCTION ---
+# --- UPDATED FUNCTION ---
 def download_gcs_dataset(gcs_path, local_path):
     """
     Copies the dataset from GCS to the local notebook instance.
     """
     print(f"Copying dataset from {gcs_path} to {local_path}...")
+    
     # Check if the local directory already exists and remove it
     if os.path.exists(local_path):
         print(f"Removing existing local directory: {local_path}")
         shutil.rmtree(local_path)
     
-    # Use gcloud storage to copy the entire folder recursively
-    os.system(f"gcloud storage cp -r {gcs_path} {local_path}")
+    # --- THIS IS THE FIX ---
+    # Create the new, empty local directory
+    print(f"Creating new local directory: {local_path}")
+    os.makedirs(local_path)
+    # -----------------------
+    
+    # Use gcloud storage to copy the *contents* of the GCS folder
+    # We add '/*' to copy the contents (train, val, test)
+    # into our new folder.
+    os.system(f"gcloud storage cp -r {gcs_path}/* {local_path}/")
     print("Dataset copy complete.")
-# --- END NEW FUNCTION ---
+# --- END UPDATED FUNCTION ---
 
 # (build_model function is unchanged)
 def build_model(num_classes):
@@ -54,26 +55,19 @@ def build_model(num_classes):
     outputs = tf.keras.layers.Dense(num_classes, activation='softmax', name="output_layer")(x)
     return tf.keras.Model(inputs, outputs)
 
-# Define the main function that runs the training pipeline
+# (main function is unchanged)
 def main():
-    # Download the dataset from GCS to the local disk first
     download_gcs_dataset(GCS_DATA_DIR, LOCAL_DATA_DIR)
 
-    # Define paths to the NEW LOCAL folders
     train_dir = os.path.join(LOCAL_DATA_DIR, "train")
     val_dir = os.path.join(LOCAL_DATA_DIR, "validation")
     test_dir = os.path.join(LOCAL_DATA_DIR, "test")
     
-    # Print a status message
     print(f"Loading datasets from LOCAL folder: {LOCAL_DATA_DIR}")
-    # Load the training dataset from the LOCAL directory
     train_ds = tf.keras.utils.image_dataset_from_directory(train_dir, image_size=IMG_SIZE, batch_size=BATCH_SIZE)
-    # Load the validation dataset
     val_ds = tf.keras.utils.image_dataset_from_directory(val_dir, image_size=IMG_SIZE, batch_size=BATCH_SIZE)
-    # Load the test dataset
     test_ds = tf.keras.utils.image_dataset_from_directory(test_dir, image_size=IMG_SIZE, batch_size=BATCH_SIZE)
     
-    # (The rest of the script is unchanged)
     class_names = train_ds.class_names
     num_classes = len(class_names)
     print(f"Found {num_classes} classes: {class_names}")
@@ -111,10 +105,7 @@ def main():
               callbacks=[early_stopping])
 
     print("\nEvaluating model on test set...")
-    # --- THIS IS THE FIX ---
-    # Removed the extra '.' before test_ds
     loss, accuracy = model.evaluate(test_ds)
-    # -----------------------
     print(f"Test Accuracy: {accuracy * 100:.2f}%")
 
     print(f"Saving model to {MODEL_SAVE_DIR}")
